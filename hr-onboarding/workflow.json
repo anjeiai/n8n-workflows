@@ -1,0 +1,93 @@
+{
+  "name": "New hire onboarding (example)",
+  "nodes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Sample new hires",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [\n  { json: { name: \"New Colleague A\", role: \"Sales Assistant\", start: \"2026-12-01\", manager: \"Team Lead\" } },\n  { json: { name: \"New Colleague B\", role: \"Accountant\", start: \"2026-12-15\", manager: \"Financial Controller\" } }\n];"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Build task plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const TASKS = [\n  { days: -7, task: \"Order laptop and access\", owner: \"IT\" },\n  { days: -3, task: \"Send welcome email with first-day agenda\", owner: \"HR\" },\n  { days: 0, task: \"Welcome and team introduction\", owner: \"manager\" },\n  { days: 1, task: \"Mandatory training (security, data protection)\", owner: \"HR\" },\n  { days: 30, task: \"One-month feedback conversation\", owner: \"manager\" }\n];\nconst out = [];\nfor (const { json: h } of $input.all()) {\n  const start = new Date(h.start + \"T00:00:00Z\");\n  for (const t of TASKS) {\n    const d = new Date(start); d.setUTCDate(d.getUTCDate() + t.days);\n    // Weekend deadlines move to a working day: before the start date back to\n    // Friday, from the start date on forward to Monday. Public holidays are not handled.\n    const wd = d.getUTCDay();\n    if (wd === 6) d.setUTCDate(d.getUTCDate() + (t.days < 0 ? -1 : 2));\n    if (wd === 0) d.setUTCDate(d.getUTCDate() + (t.days < 0 ? -2 : 1));\n    out.push({ json: { name: h.name, role: h.role, task: t.task, due: d.toISOString().slice(0, 10), owner: t.owner === \"manager\" ? h.manager : t.owner } });\n  }\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -220
+      ],
+      "parameters": {
+        "content": "Example on invented data, with no personal data. In production, replace the first step with your HR system and the last with task or email creation. Process personal data only in approved tools.",
+        "height": 160,
+        "width": 380
+      }
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Sample new hires",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample new hires": {
+      "main": [
+        [
+          {
+            "node": "Build task plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

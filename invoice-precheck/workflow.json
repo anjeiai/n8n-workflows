@@ -1,0 +1,93 @@
+{
+  "name": "Invoice pre-check (example)",
+  "nodes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Sample invoices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const orders = { \"PO-1001\": 1200, \"PO-1002\": 450, \"PO-1003\": 9800 };\nconst invoices = [\n  { number: \"INV-2026-001\", supplier: \"Supplier A Ltd\", order: \"PO-1001\", amount: 1200 },\n  { number: \"INV-2026-002\", supplier: \"Supplier B Ltd\", order: \"PO-1002\", amount: 520 },\n  { number: \"INV-2026-003\", supplier: \"Supplier C Ltd\", order: \"PO-1003\", amount: 9800 },\n  { number: \"INV-2026-004\", supplier: \"Supplier D Ltd\", order: \"PO-9999\", amount: 300 }\n];\nreturn invoices.map(i => ({ json: { ...i, order_amount: orders[i.order] ?? null } }));"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Pre-check and decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const AUTO_LIMIT = 2000; // above this amount a human always approves\nreturn $input.all().map(({ json: i }) => {\n  let decision, reason;\n  if (i.order_amount === null) { decision = \"reject-for-completion\"; reason = \"Purchase order does not exist.\"; }\n  else if (i.amount !== i.order_amount) { decision = \"manager-approval\"; reason = \"Amount does not match the order (\" + i.order_amount + \" vs \" + i.amount + \").\"; }\n  else if (i.amount > AUTO_LIMIT) { decision = \"manager-approval\"; reason = \"Amount above the limit for automatic pre-check.\"; }\n  else { decision = \"precheck-ok\"; reason = \"Matches the order and is under the limit.\"; }\n  return { json: { ...i, decision, reason, human_approves: true } };\n});"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -220
+      ],
+      "parameters": {
+        "content": "Example on invented data. The workflow only prepares a pre-check; the final approval is always made by a named person (human_approves = true). In production, replace the data with your ERP and add an approval step and an audit log.",
+        "height": 160,
+        "width": 380
+      }
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Sample invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample invoices": {
+      "main": [
+        [
+          {
+            "node": "Pre-check and decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "name": "Email triage (example)",
+  "nodes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Sample emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const emails = [\n  { id: 1, from: \"customer1@example.com\", subject: \"Complaint about order 1042\", text: \"The goods arrived damaged, I want a refund. This is urgent.\" },\n  { id: 2, from: \"customer2@example.com\", subject: \"Billing question\", text: \"Can you send me a duplicate invoice for September?\" },\n  { id: 3, from: \"partner@example.com\", subject: \"Partnership\", text: \"We would like to introduce our service and arrange a meeting.\" },\n  { id: 4, from: \"customer3@example.com\", subject: \"Cannot log in\", text: \"After changing my password I cannot log in to my account.\" }\n];\nreturn emails.map(e => ({ json: e }));"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Sort into queues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const rules = [\n  { queue: \"complaints\", words: [\"complaint\", \"damaged\", \"refund\"] },\n  { queue: \"billing\", words: [\"invoice\", \"payment\", \"billing\", \"credit note\"] },\n  { queue: \"tech-support\", words: [\"log in\", \"password\", \"not working\", \"error\"] },\n  { queue: \"sales\", words: [\"partnership\", \"offer\", \"meeting\"] }\n];\nreturn $input.all().map(({ json }) => {\n  const t = (json.subject + \" \" + json.text).toLowerCase();\n  const match = rules.find(r => r.words.some(w => t.includes(w)));\n  const urgent = [\"urgent\", \"immediately\", \"asap\"].some(w => t.includes(w));\n  return { json: {\n    ...json,\n    queue: match ? match.queue : \"manual-review\",\n    priority: urgent ? \"high\" : \"normal\",\n    // Anything uncertain or urgent always goes to a human.\n    human_review: !match || urgent\n  } };\n});"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -220
+      ],
+      "parameters": {
+        "content": "Example on invented data. In production, replace the first step with a Gmail/IMAP trigger and the keyword rules with a language model (Claude). Uncertain cases always go to a human.",
+        "height": 160,
+        "width": 380
+      }
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Sample emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample emails": {
+      "main": [
+        [
+          {
+            "node": "Sort into queues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
